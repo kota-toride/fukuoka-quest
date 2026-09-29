@@ -2,8 +2,46 @@
 
 **福岡県を、現実世界のRPGに。** — 観光するのではなく、冒険する。
 
-福岡で起きていること（店・農家・漁業・文化・今日だけの出来事）を AI GAME MASTER が QUEST に変換し、
-プレイヤーが実際に動くことで地域経済まで動かすサービスのハッカソン用MVP。
+福岡で起きていること（飲食店の限定メニュー、茶農家の見学、今朝の水揚げ、天気、工房の体験…）を **AI GAME MASTER** が QUEST に変換し、
+プレイヤーは冒険として現地へ向かう。移動の途中では AI が **SIDE QUEST（寄り道）** を提案し、移動そのものが冒険になる。
+
+> 福岡には観光資源がないのではない。まだQUESTになっていないだけだ。
+
+- **公開URL**：https://fukuoka-quest.vercel.app/
+- FukuokAI Hackathon 提出用プロトタイプ
+
+## できること
+
+| 機能 | 内容 |
+|---|---|
+| WORLD MAP | 福岡県を冒険地図として表示。未踏エリアは霧、HIDDEN QUEST を「調べる」と発見できる |
+| QUEST BOARD | 今日発生している依頼（LIMITED / HIDDEN / DAILY…）を掲示板形式で表示 |
+| QUEST DETAIL | 依頼書：ストーリー・場所・難易度・EXP・POINT・所要時間・開催時間・報酬・地図 |
+| **AI ADVENTURE ROUTE** | 7つの冒険スタイル（最短 / 最安 / QUEST最大 / 景色 / グルメ / EXP最大 / 公共交通）から、経由地と寄り道を含むルートを提案 |
+| **SIDE QUEST** | ルート上のQUESTを「SIDE QUEST FOUND」として提示。寄るかどうかはプレイヤーが選ぶ |
+| QUEST COMPLETE | 朱印の演出 → EXP / POINT → LEVEL UP → 称号 → 福岡探索率の更新 |
+| ADVENTURER RECORD | レベル・探索率（発見エリア / 60市町村）・称号・冒険の記録 |
+| REWARD CABINET | 冒険で得たPOINTで福岡の特産品をアンロック |
+| **AI GAME MASTER** | 地域・資源・体験・時間を入力 → QUESTを生成（日英）→ 掲示板に追加 |
+| **Dynamic QUEST** | 店舗の時間限定情報から LIMITED QUEST を発生させる |
+
+### 「裏事情をプレイヤーに見せない」設計
+
+- 店舗が入力する掲載目的（来店の少ない時間帯・当日の商品など）はAIの判断にだけ使い、プレイヤー向けの `Quest` 型には含めない
+- AIの出力は `lib/ai/sanitize.ts` で「空席・廃棄・余剰・在庫…」などを検査し、含まれていれば安全な文面に差し替える
+
+## デモの流れ（約5分）
+
+1. `/` HERO → **START ADVENTURE**
+2. `/map` 八女を選択 →「調べる」→ HIDDEN QUEST「八女茶の秘密を探れ」を発見
+3. 依頼書 → **QUEST START**
+4. ADVENTURE ROUTE で「最短でCLEAR」→ **SIDE QUEST FOUND「久留米の味を解明せよ +300 EXP / 追加15分」** → 寄り道する → 出発
+5. 寄り道をCLEAR（探索率 38% → 40%）→ 八女茶をCLEAR（**LEVEL UP 07 → 08**、称号「八女茶探索者」「筑後を知る者」）
+6. REWARD CABINET で 530 PT → 八女茶をアンロック
+7. `/game-master` で「八女の茶農家」→ GENERATE → QUEST BOARD に掲示
+8. 「博多の飲食店」→ LIMITED QUEST「博多の夜を攻略せよ」を発生
+
+やり直すときは `/profile` 最下部の **RESET DEMO DATA**。達成条件は「DEMO: SKIP OBJECTIVES」で省略でき、現地チェックインはボタン操作で代替しています。
 
 ## 起動
 
@@ -12,7 +50,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-APIキー無しで全機能が **DEMO MODE** で動きます。Claude で実際に生成する場合は `.env.local` に：
+APIキーが無くても全機能が **DEMO MODE**（ルールベース生成）で動きます。Claude で実際に生成する場合は `.env.local` に：
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
@@ -20,62 +58,59 @@ ANTHROPIC_API_KEY=sk-ant-...
 FQ_DEMO_MODE=
 ```
 
-## 5分デモの流れ
+## AIの使い方
 
-| # | 画面 | 操作 |
-|---|------|------|
-| 1 | `/` HERO | 映像 → 「START ADVENTURE」 |
-| 2 | `/map` WORLD MAP | 八女（未探索・HIDDEN 2）を見せる |
-| 3 | `/quests` NOW QUEST | 右上 **DEMO CLOCK** を ON（17:30に固定 → 17–19時のLIMITEDがLIVE表示になる） |
-| 4 | HIDDEN QUEST | 「？？？？？（八女 +800）」をタップ → SCANNING → DISCOVERED |
-| 5 | `/quests/yame-tea` | STORY → QUEST START → CHECK-IN（GPS演出）→ QUEST CLEAR |
-| 6 | QUEST COMPLETE | +800 EXP → +100 PT → LEVEL UP 12→13 → 称号「八女茶ハンター」→ 探索率 27→29% |
-| 7 | `/rewards` | 八女茶 500PT と交換 → 引換コード |
-| 8 | `/game-master` 地域資源 | 初期値のまま「QUESTを生成」→「八女茶の秘密を探れ」★★ / 800EXP / 100PT |
-| 9 | `/game-master` 店舗 | 「DYNAMIC QUESTを生成」→ 事業者の裏事情とプレイヤー表示の分離を見せる → 「今すぐQUESTを出現させる」 |
-| 10 | NEW QUEST 演出 | → QUEST BOARD に NEW QUEST として出現、全画面に通知 |
-| 11 | `/vision` | クロージング（← → キー / クリックで送る） |
+| 用途 | エンドポイント | 内容 |
+|---|---|---|
+| QUEST生成 | `POST /api/game-master` | 地域資源・店舗情報から、タイトル・ストーリー（日英）・カテゴリ・難易度・EXP・報酬を構造化出力で生成 |
+| ルートの語り | `POST /api/route` | ルートエンジンが計算した所要時間・経由地・SIDE QUESTをもとに、命令ではなく「提案」の口調で案内文を生成 |
 
-デモをやり直すときは `/profile` 最下部の **RESET DEMO DATA**。
+- 所要時間・運賃・寄り道は `lib/game/route.ts` のルートエンジンが決定的に計算し（ダイクストラ法＋冒険スタイル別の経由地選定）、AIは「語り」だけを担当
+- モデルは Claude（`@anthropic-ai/sdk`、structured outputs）。失敗・拒否時は DEMO MODE に自動フォールバック
 
-## 構成
+## 技術構成
+
+- Next.js 16（App Router）/ React 19 / TypeScript / Tailwind CSS v4
+- Anthropic Claude API（`@anthropic-ai/sdk` + zod）
+- プレイヤー状態はブラウザの localStorage（本番ではDBに置き換える想定）
+- Vercel にデプロイ
 
 ```
 app/
-  page.tsx               HERO + コンセプト
-  map/                   WORLD MAP（SVGのオリジナル世界地図）
-  quests/                QUEST BOARD（NOW / HIDDEN / LIMITED / スポンサーイベント）
-  quests/[id]/           QUEST詳細 → 進行中 → COMPLETE演出
-  rewards/               REWARD SHOP
-  profile/               レベル・探索率・称号
-  game-master/           AI GAME MASTER（地域資源 / 店舗Dynamic）
-  vision/                ピッチ用スライド
-  api/game-master/       生成API（Claude or DEMO）
+  page.tsx                   HERO・コンセプト
+  map/                       WORLD MAP
+  quests/                    QUEST BOARD
+  quests/[id]/               QUEST DETAIL（依頼書）
+  quests/[id]/route/         AI ADVENTURE ROUTE・SIDE QUEST
+  adventure/                 冒険の進行 → QUEST COMPLETE
+  rewards/                   REWARD CABINET
+  profile/                   ADVENTURER RECORD
+  game-master/               AI GAME MASTER（地域資源 / Dynamic QUEST）
+  vision/                    クロージング用スライド
+  api/game-master/           QUEST生成API（Claude or DEMO）
+  api/route/                 ルート案内文API（Claude or DEMO）
+components/
+  WorldMap.tsx               SVGの冒険地図（地形・霧・ルート描画）
+  Scene.tsx                  福岡の風景イラスト（写真が無いときの表示）
+  QuestComplete.tsx          朱印のCOMPLETE演出
 lib/
-  types.ts               Quest 型（将来拡張: lat/lng, businessId, inventory, weather, crowd）
-  data/                  シードQUEST・地域・報酬・称号
-  game/                  レベル/探索率ルール、プレイヤー状態（localStorage）
-  ai/                    provider（切替）/ anthropic / demo / sanitize（裏事情ワード除去）
+  data/                      シードQUEST・地域・移動グラフ・報酬・称号
+  game/                      レベル・探索率ルール、ルートエンジン、プレイヤー状態
+  ai/                        provider / anthropic / route-narrator / demo / sanitize
 ```
 
-### 「裏事情をプレイヤーに見せない」仕組み
+## 画像・動画の差し替え
 
-- 店舗入力の `internalReason`（来店の少ない時間帯・当日商品など）はAIの判断にだけ使い、`Quest` 型には入らない
-- AI出力は `lib/ai/sanitize.ts` で「空席・廃棄・余剰・在庫…」等を検査し、含まれていれば安全な文面に差し替え
+`public/` にファイルを置くと自動で使われます（無い場合は福岡の風景イラストを表示）。追加後は再ビルドしてください。
 
-## 画像・動画の置き場所
+| パス | 用途 |
+|------|------|
+| `public/videos/hero-fukuoka.mp4` | HERO動画 |
+| `public/images/hero/hero-1.jpg` 〜 `hero-7.jpg` | HEROのスライド写真 |
+| `public/images/quests/{id}.jpg` | QUESTの写真 |
+| `public/images/items/{id}.png` | 報酬アイテム |
 
-ファイルを置くだけで自動的に使われます（無ければグラデーション＋等高線アートにフォールバック）。
-本番ビルド（`npm run build`）は素材一覧をビルド時に読むので、素材を追加したら再ビルドしてください。
+## 注意
 
-| パス | 用途 | 推奨サイズ |
-|------|------|------------|
-| `public/videos/hero-fukuoka.mp4` | HERO動画（5–10秒・ループ） | 1920×1080, H.264, 〜8MB, 音声なし |
-| `public/videos/quest-yame.mp4` | 八女茶QUEST 背景（10–15秒） | 1920×1080 |
-| `public/videos/quest-dynamic.mp4` | Dynamic QUEST 出現演出（店舗→夜→街） | 1920×1080 |
-| `public/images/hero/hero-1.jpg` 〜 `hero-7.jpg` | 動画が無い時のHEROスライド（街/海/茶畑/川/食/人/夜） | 1920×1080 |
-| `public/images/quests/{id}.jpg` | QUESTカード・詳細の背景 | 1600×1000 |
-| `public/images/items/{id}.png` | 報酬アイテム | 800×600（透過PNG推奨） |
-| `public/images/ui/map-texture.jpg` | WORLD MAPの質感テクスチャ | 2000×1760 |
-| `public/images/ui/quest-complete.jpg` | COMPLETE演出の背景 | 1920×1080 |
-| `public/images/characters/avatar.png` | プロフィールのアバター | 512×512 |
+- QUEST・店舗・所要時間・報酬はすべてデモ用のデータです。実在の事業者との提携や導入実績はありません。
+- 地図は冒険地図としての概略図で、測量図ではありません。
